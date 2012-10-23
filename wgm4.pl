@@ -44,9 +44,20 @@ binmode STDOUT, ":encoding(UTF-8)";
 
 my @theaters;
 
-my $url = "http://www.google.com/movies?near=Li%C3%A8ge&date=0";		# pagination with &start=10
+my $lang = "en";
+my $place = "Liège";
+
+my $url = "http://www.google.com/movies?near=$place&date=0&hl=$lang";		# pagination with &start=10
 my $content = get($url) or die("Unable to fetch $url\n");
 my $pq = pQuery($content) or die("Error parsing fetched url\n");
+
+# first check to see if they are movies at the specified place and date
+if ($pq->find(".movie_results")->length()) {
+	print "movies found\n";
+} else {
+	print "movies not found\n";
+	# will have to return an error
+}
 
 my $theaters = $pq->find(".theater");
 $theaters->each(sub {
