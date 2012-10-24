@@ -34,6 +34,53 @@ has 'movies' => (
 no Moose;
 1;
 
+package WWW::Google::Movies;
+use Moose;
+use Moose::Util::TypeConstraints;
+use Date::Simple ('date', 'today');
+use URI::Escape;
+
+subtype 'DateSimple'
+	=> as Object
+	=> where { $_->isa('Date::Simple') };
+
+coerce 'DateSimple' => from 'Str' => via { Date::Simple->new($_) };
+
+has 'city'	=> (is => 'ro', isa => 'Str', required => 1);
+
+has 'date'	=> (
+	is 		=> 'ro',
+	isa		=> 'DateSimple',
+	default	=> sub { today() },
+	writer 	=> "_set_date",
+	reader 	=> "get_date",
+	coerce	=> 1
+);
+
+has 'nbDays' => (is => 'rw', isa => 'Int', writer => "_set_nbDays");	# 0 = today, 1 = tomorrow, etc.
+has 'url' =>  (is => 'rw', isa => 'Str', writer => "_set_url");
+has 'theaters' => (
+	is		=> 'rw',
+	isa		=> 'ArrayRef[Movie]',
+	default => sub { [] },
+    handles => {
+            add => 'push',
+            remove => 'pop'
+    },
+    traits  => ['Array'],
+);
+
+sub BUILD {
+	my $self = shift;
+	my $diff = $self->get_date - today();
+	$self->_set_nbDays($diff);
+	$self->_set_url("http://www.google.com/movies?near=".uri_escape($self->city)."&date=".$self->nbDays);
+	
+}
+
+no Moose;
+1;
+
 package main;
 
 use LWP::Simple;
@@ -41,6 +88,17 @@ use pQuery;
 use Data::Dumper;
 use utf8;
 binmode STDOUT, ":encoding(UTF-8)";
+
+my $foo = WWW::Google::Movies->new("city" => "Liège");
+$foo = WWW::Google::Movies->new("city" => "Liège", "date" => "2012-10-27");
+
+print $foo->get_date."\n";
+print $foo->city."\n";
+print $foo->nbDays."\n";
+print $foo->url."\n";
+
+exit;
+
 
 my @theaters;
 
