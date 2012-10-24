@@ -7,7 +7,16 @@ use Moose;
 
 has 'name' => (is	=> 'rw', isa	=> 'Str');
 has 'info' => (is	=> 'rw', isa	=> 'Str');
-has 'times' => (is	=> 'rw', isa	=> 'Str');
+has 'times' => (
+	is	=> 'rw',
+	isa	=> 'ArrayRef[Str]',
+	default => sub { [] },
+    handles => {
+            addTime => 'push',
+            removeTime => 'pop'
+    },
+    traits  => ['Array'],
+);
 
 no Moose;
 1;
@@ -25,8 +34,8 @@ has 'movies' => (
 	isa	=> 'ArrayRef[Movie]',
 	default => sub { [] },
     handles => {
-            add => 'push',
-            remove => 'pop'
+            addMovie => 'push',
+            removeMovie => 'pop'
     },
     traits  => ['Array'],
 );
@@ -46,9 +55,8 @@ subtype 'DateSimple'
 
 coerce 'DateSimple' => from 'Str' => via { Date::Simple->new($_) };
 
-has 'city'	=> (is => 'ro', isa => 'Str', required => 1);
-
-has 'date'	=> (
+has 'city'			=> (is => 'ro', isa => 'Str', required => 1);
+has 'date'			=> (
 	is 		=> 'ro',
 	isa		=> 'DateSimple',
 	default	=> sub { today() },
@@ -57,15 +65,16 @@ has 'date'	=> (
 	coerce	=> 1
 );
 
-has 'nbDays' => (is => 'rw', isa => 'Int', writer => "_set_nbDays");	# 0 = today, 1 = tomorrow, etc.
-has 'url' =>  (is => 'rw', isa => 'Str', writer => "_set_url");
-has 'theaters' => (
+has 'nbDays' 		=> (is => 'rw', isa => 'Int', writer => "_set_nbDays");	# 0 = today, 1 = tomorrow, etc.
+has 'lang'			=> (is => 'rw', isa => 'Str', default => "en");
+has 'url' 			=> (is => 'rw', isa => 'Str', writer => "_set_url");
+has 'theaters' 		=> (
 	is		=> 'rw',
-	isa		=> 'ArrayRef[Movie]',
+	isa		=> 'ArrayRef[Theater]',
 	default => sub { [] },
     handles => {
-            add => 'push',
-            remove => 'pop'
+            addTheater => 'push',
+            removeTheater => 'pop'
     },
     traits  => ['Array'],
 );
@@ -74,7 +83,7 @@ sub BUILD {
 	my $self = shift;
 	my $diff = $self->get_date - today();
 	$self->_set_nbDays($diff);
-	$self->_set_url("http://www.google.com/movies?near=".uri_escape($self->city)."&date=".$self->nbDays);
+	$self->_set_url("http://www.google.com/movies?near=".uri_escape($self->city)."&date=".$self->nbDays."&hl=".$self->lang);
 	
 }
 
@@ -97,7 +106,7 @@ print $foo->city."\n";
 print $foo->nbDays."\n";
 print $foo->url."\n";
 
-exit;
+#exit;
 
 
 my @theaters;
@@ -105,7 +114,7 @@ my @theaters;
 my $lang = "en";
 my $place = "Liège";
 
-my $url = "http://www.google.com/movies?near=$place&date=0&hl=$lang";		# pagination with &start=10
+my $url = "http://www.google.com/movies?near=$place&date=1&hl=$lang";		# pagination with &start=10
 my $content = get($url) or die("Unable to fetch $url\n");
 my $pq = pQuery($content) or die("Error parsing fetched url\n");
 
@@ -154,10 +163,15 @@ $theaters->each(sub {
 				$pQ->find(".times")->each( sub {
 					my $times = shift;
 					my $pQ = pQuery( $_ );
+					my $timesText = $pQ->text; 
 					# warning: there can be some non-timely parts (like "dubbed in french")
-					$movie->times($pQ->text);
+					$timesText =~ s/[^\d:\s]+//g;	# keep only digits and colons characters
+					$timesText =~ s/\s+/ /g;		# multi white space becomes space
+					$timesText =~ s/^\s//g;			# remove first white space
+					my @times = split(/ /, $timesText);
+					$movie->times(\@times);
 				});
-				$theater->add($movie);
+				$theater->addMovie($movie);
 			});
 		});
 		$pQ->find(".show_right")->each(sub {
@@ -180,10 +194,15 @@ $theaters->each(sub {
 				$pQ->find(".times")->each( sub {
 					my $times = shift;
 					my $pQ = pQuery( $_ );
+					my $timesText = $pQ->text; 
 					# warning: there can be some non-timely parts (like "dubbed in french")
-					$movie->times($pQ->text);
+					$timesText =~ s/[^\d:\s]+//g;	# keep only digits and colons characters
+					$timesText =~ s/\s+/ /g;		# multi white space becomes space
+					$timesText =~ s/^\s//g;			# remove first white space
+					my @times = split(/ /, $timesText);
+					$movie->times(\@times);
 				});
-				$theater->add($movie);
+				$theater->addMovie($movie);
 			});
 		});
 	});
@@ -199,7 +218,10 @@ foreach my $theater (@theaters) {
 	foreach my $movie (@{$theater->movies}) {
 		print "\t".$movie->name."\n";
 		print "\t".$movie->info."\n";
-		print "\t".$movie->times."\n";
+		foreach my $time (@{$movie->times}) {
+			print "\t".$time;
+		}
+		print "\n";
 	}
 }
 
