@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use utf8;
+use lib 'lib';
 use WWW::Google::Movies;
 binmode STDOUT, ":encoding(UTF-8)";
 
