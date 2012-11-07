@@ -96,12 +96,8 @@ sub BUILD {
 	my $pq = pQuery($content) or die("Error parsing fetched url\n");
 	
 	# first check to see if they are movies at the specified place and date
-	if ($pq->find(".movie_results")->length()) {
-		print "movies found\n";
-		# change this TODO
-	} else {
-		print "movies not found\n";
-		# will have to return an error TODO
+	if (!$pq->find(".movie_results")->length()) {
+        die("Unable to find movies at the specified location and date");    # not sure I should die here, perhaps I should just create empty arrays
 	}
 	
 	my $theaters = $pq->find(".theater");
